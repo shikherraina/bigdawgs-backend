@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -14,7 +14,7 @@ app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
 app.use(morgan("dev"));
 app.use(express.json());
 
-app.get("/health", (req, res) => {
+app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "Big Dawgs API is running 🐾" });
 });
 
