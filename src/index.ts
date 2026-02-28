@@ -4,6 +4,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import inventoryRoutes from "./routes/inventory";
+import authRoutes from "./routes/auth";
+import orderRoutes from "./routes/orders";
 
 dotenv.config();
 
@@ -34,6 +36,8 @@ app.use(express.json());
 
 // Routes
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/orders", orderRoutes);
 
 // Health check
 app.get("/health", (req: Request, res: Response) => {
