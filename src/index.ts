@@ -10,14 +10,23 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(helmet());
+// CORS must be before everything else
 app.use(
   cors({
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:3000",
-      "http://localhost:3000",
-    ],
-    credentials: true,
+    origin: "*", // open for local dev — we'll tighten this for production
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "x-api-key", "Authorization"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  }),
+);
+
+// Handle preflight OPTIONS requests explicitly
+app.options("*", cors());
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false, // don't block cross-origin requests
   }),
 );
 app.use(morgan("dev"));
@@ -30,11 +39,11 @@ app.use("/api/inventory", inventoryRoutes);
 app.get("/health", (req: Request, res: Response) => {
   res.json({
     status: "Big Dawgs API is running 🐾",
-    timestamp: new Date() .toISOString(),
+    timestamp: new Date().toISOString(),
   });
 });
 
-// 404 handler
+// 404
 app.use((req: Request, res: Response) => {
   res
     .status(404)
