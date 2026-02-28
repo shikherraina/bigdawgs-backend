@@ -36,12 +36,11 @@ export const sendOTP = async (req: Request, res: Response) => {
       .single();
 
     if (existingUser) {
-      // User exists — update name if provided
+      // User exists — update name if provided, ignore updated_at
       const { data: updatedUser, error: updateError } = await supabase
         .from("users")
         .update({
           full_name: name || existingUser.full_name,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", existingUser.id)
         .select()
