@@ -6,16 +6,16 @@ import dotenv from "dotenv";
 import inventoryRoutes from "./routes/inventory";
 import authRoutes from "./routes/auth";
 import orderRoutes from "./routes/orders";
+import contactRoutes from "./routes/contactRoutes";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS must be before everything else
 app.use(
   cors({
-    origin: "*", // open for local dev — we'll tighten this for production
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "x-api-key", "Authorization"],
     preflightContinue: false,
@@ -23,21 +23,16 @@ app.use(
   }),
 );
 
-// Handle preflight OPTIONS requests explicitly
 app.options("*", cors());
-
-app.use(
-  helmet({
-    crossOriginResourcePolicy: false, // don't block cross-origin requests
-  }),
-);
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(morgan("dev"));
 app.use(express.json());
 
-// Routes
+// Routes — all must be before the 404 handler
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/contact", contactRoutes); // ← no authMiddleware, matches your pattern
 
 // Health check
 app.get("/health", (req: Request, res: Response) => {
@@ -47,7 +42,7 @@ app.get("/health", (req: Request, res: Response) => {
   });
 });
 
-// 404
+// 404 — must be last
 app.use((req: Request, res: Response) => {
   res
     .status(404)
