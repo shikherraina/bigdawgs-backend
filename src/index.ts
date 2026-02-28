@@ -7,6 +7,7 @@ import inventoryRoutes from "./routes/inventory";
 import authRoutes from "./routes/auth";
 import orderRoutes from "./routes/orders";
 import contactRoutes from "./routes/contactRoutes";
+import adminRoutes from "./routes/adminRoutes";
 
 dotenv.config();
 
@@ -33,7 +34,7 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/contact", contactRoutes); // ← no authMiddleware, matches your pattern
-
+app.use("/api/admin", adminRoutes);
 // Health check
 app.get("/health", (req: Request, res: Response) => {
   res.json({
