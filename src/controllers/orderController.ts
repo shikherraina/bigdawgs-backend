@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { supabase } from "../config/supabase";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import QRCode from "qrcode";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -45,12 +46,10 @@ export const verifyPayment = async (req: Request, res: Response) => {
       .digest("hex");
 
     if (expectedSig !== razorpay_signature) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: { message: "Payment verification failed" },
-        });
+      return res.status(400).json({
+        success: false,
+        error: { message: "Payment verification failed" },
+      });
     }
 
     // Create order in DB
@@ -95,6 +94,56 @@ export const verifyPayment = async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, orderId: order.id });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: { message: error.message } });
+  }
+};
+
+// POST /api/orders/create-upi-payment
+// Body: { amount: number, upiId: string, merchantName: string }
+export const createUpiPaymentOrder = async (req: Request, res: Response) => {
+  try {
+    const { amount, upiId, merchantName } = req.body;
+
+    // Generate a unique transaction ID
+    const transactionId = `UPI_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create UPI payment URL
+    const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${amount}&cu=INR&tr=${transactionId}&tn=Payment for order`;
+
+    // Generate QR code
+    const qrCodeDataUrl = await QRCode.toDataURL(upiUrl);
+
+    // Create pending payment record
+    const { data: payment, error: paymentError } = await supabase
+      .from("payments")
+      .insert({
+        transaction_id: transactionId,
+        amount,
+        status: "pending",
+        payment_method: "upi",
+        gateway: "upi", // Required field for payments table
+        upi_id: upiId,
+        qr_code_url: qrCodeDataUrl,
+      })
+      .select()
+      .single();
+
+    if (paymentError) throw paymentError;
+
+    res.json({
+      success: true,
+      payment: {
+        id: payment.id,
+        transactionId,
+        qrCode: qrCodeDataUrl,
+        upiUrl,
+        amount,
+        upiId,
+        merchantName,
+        status: "pending",
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, error: { message: error.message } });
   }

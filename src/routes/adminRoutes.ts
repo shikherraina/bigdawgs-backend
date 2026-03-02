@@ -425,4 +425,123 @@ router.put(
   },
 );
 
+// ─── UPI Payment Management ─────────────────────────────────────────────────────
+
+// GET /api/admin/pending-payments
+router.get(
+  "/pending-payments",
+  adminAuth,
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const { data: payments, error } = await supabase
+        .from("payments")
+        .select(
+          `
+          *,
+          users!payments_user_id_fkey (email, full_name)
+        `,
+        )
+        .eq("status", "pending")
+        .eq("payment_method", "upi")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+
+      res.json({ success: true, payments });
+    } catch (error: any) {
+      res
+        .status(500)
+        .json({ success: false, error: { message: error.message } });
+    }
+  },
+);
+
+// POST /api/admin/approve-payment
+router.post(
+  "/approve-payment",
+  adminAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { paymentId, utrNumber, notes } = req.body;
+
+      // Update payment status to success
+      const { data: payment, error: paymentError } = await supabase
+        .from("payments")
+        .update({
+          status: "success",
+          utr_number: utrNumber,
+          verified_manually: true,
+          verified_at: new Date().toISOString(),
+        })
+        .eq("id", paymentId)
+        .select()
+        .single();
+
+      if (paymentError) {
+        res.status(500).json({ error: paymentError.message });
+        return;
+      }
+
+      res.json({
+        success: true,
+        payment: {
+          id: payment.id,
+          status: payment.status,
+          utrNumber: payment.utr_number,
+          verifiedAt: payment.verified_at,
+        },
+        message: "Payment approved successfully",
+      });
+    } catch (error: any) {
+      res
+        .status(500)
+        .json({ success: false, error: { message: error.message } });
+    }
+  },
+);
+
+// POST /api/admin/reject-payment
+router.post(
+  "/reject-payment",
+  adminAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { paymentId, reason } = req.body;
+
+      const { data: payment, error } = await supabase
+        .from("payments")
+        .update({
+          status: "failed",
+          verified_manually: true,
+          verified_at: new Date().toISOString(),
+        })
+        .eq("id", paymentId)
+        .select()
+        .single();
+
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+
+      res.json({
+        success: true,
+        payment: {
+          id: payment.id,
+          status: payment.status,
+          verifiedAt: payment.verified_at,
+        },
+        message: "Payment rejected",
+      });
+    } catch (error: any) {
+      res
+        .status(500)
+        .json({ success: false, error: { message: error.message } });
+    }
+  },
+);
+
 export default router;

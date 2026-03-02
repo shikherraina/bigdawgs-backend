@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth";
 import orderRoutes from "./routes/orders";
 import contactRoutes from "./routes/contactRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import upiRoutes from "./routes/upi";
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/contact", contactRoutes); // ← no authMiddleware, matches your pattern
 app.use("/api/admin", adminRoutes);
+app.use("/api/upi", upiRoutes);
 // Health check
 app.get("/health", (req: Request, res: Response) => {
   res.json({
