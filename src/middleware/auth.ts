@@ -7,7 +7,7 @@ export const requireApiKey = (
 ) => {
   const key = req.headers["x-api-key"];
 
-  if (!key || key !== process.env.API_SECRET_KEY) {
+  if (!key || key !== process.env.NEXT_PUBLIC_API_SECRET_KEY) {
     return res
       .status(401)
       .json({ success: false, error: { message: "Unauthorized" } });
