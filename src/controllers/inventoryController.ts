@@ -89,10 +89,13 @@ export const getByCategory = async (req: Request, res: Response) => {
   }
 };
 
-// GET /api/inventory/:category/:slug
+// GET /api/inventory/:category/:slug or GET /api/inventory/:slug
 export const getProductBySlug = async (req: Request, res: Response) => {
   try {
-    const { slug } = req.params;
+    const { slug, category } = req.params;
+
+    // Use slug from either direct route or category/slug route
+    const productSlug = slug || category;
 
     const { data, error } = await supabase
       .from("products")
@@ -104,7 +107,7 @@ export const getProductBySlug = async (req: Request, res: Response) => {
         product_videos(url, type)
       `,
       )
-      .eq("slug", slug)
+      .eq("slug", productSlug)
       .eq("is_active", true)
       .single();
 
