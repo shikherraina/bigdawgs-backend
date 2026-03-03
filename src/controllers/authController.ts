@@ -2,21 +2,10 @@ import { Request, Response } from "express";
 import { supabase } from "../config/supabase";
 import { generateOTP, otpExpiresAt } from "../utils/otp";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
-
-// ── Nodemailer transporter (same as admin, works with any real customer email) ─
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: { rejectUnauthorized: false },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ── POST /api/auth/send-otp ───────────────────────────────────────────────────
 export const sendOTP = async (req: Request, res: Response): Promise<void> => {
@@ -127,58 +116,63 @@ export const sendOTP = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // ── Send OTP via Nodemailer ──────────────────────────────────────────────
+    console.log(`[sendOTP] OTP stored for user: ${user.id}`);
+
+    // ── Send OTP via Resend (HTTPS — works on all cloud platforms) ───────────
     if (email) {
-      if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        // Dev fallback — log to console
-        console.warn(
-          `[sendOTP] SMTP not configured — OTP for ${email}: ${otp}`,
-        );
-      } else {
-        try {
-          await transporter.sendMail({
-            from: `"Big Dawgs RC Store" <${process.env.SMTP_USER}>`,
-            to: email,
-            subject: `${otp} is your Big Dawgs verification code`,
-            html: `
-              <div style="background:#000;color:#fff;padding:40px;font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
-                <div style="margin-bottom:24px">
-                  <div style="display:inline-flex;align-items:center;gap:10px">
-                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#FF3D00,#FF6B00);border-radius:10px;text-align:center;line-height:40px;font-size:18px">🐾</div>
-                    <span style="color:#FF6B00;font-size:20px;font-weight:bold">Big Dawgs RC Store</span>
-                  </div>
+      try {
+        const { error: emailError } = await resend.emails.send({
+          from: "Big Dawgs RC Store <noreply@bigdawgs.store>",
+          to: email,
+          subject: `${otp} is your Big Dawgs verification code`,
+          html: `
+            <div style="background:#000;color:#fff;padding:40px;font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
+              <div style="margin-bottom:24px">
+                <div style="display:inline-flex;align-items:center;gap:10px">
+                  <div style="width:40px;height:40px;background:linear-gradient(135deg,#FF3D00,#FF6B00);border-radius:10px;text-align:center;line-height:40px;font-size:18px">🐾</div>
+                  <span style="color:#FF6B00;font-size:20px;font-weight:bold">Big Dawgs RC Store</span>
                 </div>
-                <p style="color:#ccc;font-size:15px;margin-bottom:8px">Hi ${name || "there"},</p>
-                <p style="color:#ccc;font-size:15px;margin-bottom:24px">Your verification code for checkout is:</p>
-                <div style="background:#111;border:2px solid #FF6B00;border-radius:12px;padding:28px;text-align:center;margin:0 0 24px">
-                  <span style="color:#FF6B00;font-size:52px;font-weight:bold;letter-spacing:14px">${otp}</span>
-                </div>
-                <p style="color:#888;font-size:14px">
-                  This code expires in <strong style="color:#fff">10 minutes</strong>.
-                  Do not share it with anyone.
-                </p>
-                <hr style="border:none;border-top:1px solid #222;margin:24px 0">
-                <p style="color:#555;font-size:12px">
-                  You're receiving this because someone is checking out at Big Dawgs RC Store.
-                  If this wasn't you, please ignore this email.
-                </p>
               </div>
-            `,
-          });
-          console.log(`[sendOTP] Email sent successfully to ${email}`);
-        } catch (emailErr) {
-          console.error("[sendOTP] Email send failed:", emailErr);
+              <p style="color:#ccc;font-size:15px;margin-bottom:8px">Hi ${name || "there"},</p>
+              <p style="color:#ccc;font-size:15px;margin-bottom:24px">Your verification code for checkout is:</p>
+              <div style="background:#111;border:2px solid #FF6B00;border-radius:12px;padding:28px;text-align:center;margin:0 0 24px">
+                <span style="color:#FF6B00;font-size:52px;font-weight:bold;letter-spacing:14px">${otp}</span>
+              </div>
+              <p style="color:#888;font-size:14px">
+                This code expires in <strong style="color:#fff">10 minutes</strong>.
+                Do not share it with anyone.
+              </p>
+              <hr style="border:none;border-top:1px solid #222;margin:24px 0">
+              <p style="color:#555;font-size:12px">
+                You're receiving this because someone is checking out at Big Dawgs RC Store.
+                If this wasn't you, please ignore this email.
+              </p>
+            </div>
+          `,
+        });
+
+        if (emailError) {
+          console.error("[sendOTP] Resend error:", emailError);
           res.status(500).json({
             success: false,
-            error: {
-              message:
-                emailErr instanceof Error
-                  ? `Email delivery failed: ${emailErr.message}`
-                  : "Failed to send OTP email. Please try again.",
-            },
+            error: { message: `Email delivery failed: ${emailError.message}` },
           });
           return;
         }
+
+        console.log(`[sendOTP] Email sent successfully to ${email}`);
+      } catch (emailErr) {
+        console.error("[sendOTP] Email send failed:", emailErr);
+        res.status(500).json({
+          success: false,
+          error: {
+            message:
+              emailErr instanceof Error
+                ? `Email delivery failed: ${emailErr.message}`
+                : "Failed to send OTP email. Please try again.",
+          },
+        });
+        return;
       }
     }
 
