@@ -17,16 +17,10 @@ const PORT = process.env.PORT || 5000;
 
 app.use(
   cors({
-    origin: ["*"], // Allow all origins
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "x-api-key",
-      "Authorization",
-      "Accept",
-      "Origin",
-    ],
-    credentials: true, // Allow cookies/credentials
+    origin: "*", // Allow all origins
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: "*", // Allow all headers
+    credentials: false, // Allow without credentials
     preflightContinue: false,
     optionsSuccessStatus: 204,
   }),
